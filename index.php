@@ -104,8 +104,6 @@ if ($isPost) {
     }
 
     if ($errors === []) {
-        // Tudo validado: o result.php monta o Wrapped dentro desta mesma
-        // requisição (nada é salvo em banco — os dados vivem só aqui).
         require __DIR__ . '/result.php';
         exit;
     }
@@ -131,7 +129,7 @@ if ($isPost) {
                 <label class="label" for="nome">Seu nome</label>
                 <input type="text" id="nome" name="nome" maxlength="100"
                        value="<?= esc($values['nome']) ?>"
-                       placeholder="Ana Silva"
+                       placeholder="Seu nome"
                        <?= isset($errors['nome']) ? 'aria-invalid="true"' : '' ?>>
                 <?php if (isset($errors['nome'])): ?>
                     <p class="erro-campo"><?= esc($errors['nome']) ?></p>
@@ -142,7 +140,7 @@ if ($isPost) {
                 <label class="label" for="email">Seu e-mail</label>
                 <input type="email" id="email" name="email"
                        value="<?= esc($values['email']) ?>"
-                       placeholder="ana@exemplo.com"
+                       placeholder="seunome@exemplo.com"
                        <?= isset($errors['email']) ? 'aria-invalid="true"' : '' ?>>
                 <?php if (isset($errors['email'])): ?>
                     <p class="erro-campo"><?= esc($errors['email']) ?></p>
