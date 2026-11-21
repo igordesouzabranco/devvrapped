@@ -1,5 +1,4 @@
-# Segredos — nunca commite (token GitHub e senhas SMTP)
-config.php
+.env
 
 # Dependências do Composer (Etapa 5: PHPMailer)
 /vendor/
