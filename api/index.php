@@ -115,12 +115,12 @@ if ($isPost) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Devvrapped — retrospectiva de commits</title>
-    <link rel="stylesheet" href="assets/css/style.css">
+    <link rel="stylesheet" href="/assets/css/style.css">
 </head>
 <body>
     <main class="pagina">
         <h1 class="title">
-            <img class="logo" src="DEV-logo.svg" alt="Devvrapped">
+            <img class="logo" src="/DEV-logo.svg" alt="Devvrapped">
         </h1>
         <p class="subtitle">Sua retrospectiva anual de commits do GitHub</p>
 

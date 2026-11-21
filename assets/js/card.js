@@ -273,7 +273,7 @@
         atualizarStatus('Enviando o PNG...', 'neutro');
 
         try {
-            const resposta = await fetch('send.php', {
+            const resposta = await fetch('/send.php', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({

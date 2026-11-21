@@ -16,8 +16,8 @@ declare(strict_types=1);
 use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\Exception as MailerException;
 
-require_once __DIR__ . '/vendor/autoload.php';
-require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/../vendor/autoload.php';
+require_once __DIR__ . '/../config.php';
 
 const MAX_BODY_BYTES = 6 * 1024 * 1024;   // corpo bruto (base64 ocupa ~4/3 do binário)
 const MAX_IMAGE_BYTES = 4 * 1024 * 1024;  // PNG já decodificado

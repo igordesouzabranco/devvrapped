@@ -27,10 +27,10 @@ if (
     exit;
 }
 
-require_once __DIR__ . '/config.php';
-require_once __DIR__ . '/src/GitHubApiException.php';
-require_once __DIR__ . '/src/GitHubClient.php';
-require_once __DIR__ . '/src/Statistics.php';
+require_once __DIR__ . '/../config.php';
+require_once __DIR__ . '/../src/GitHubApiException.php';
+require_once __DIR__ . '/../src/GitHubClient.php';
+require_once __DIR__ . '/../src/Statistics.php';
 
 $userName = (string) $values['nome'];
 $userEmail = isset($values['email']) && is_string($values['email']) ? $values['email'] : '';
@@ -84,19 +84,19 @@ if ($payload !== null) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Devvrapped de <?= esc($userName) ?></title>
-    <link rel="stylesheet" href="assets/css/style.css">
+    <link rel="stylesheet" href="/assets/css/style.css">
 </head>
 <body>
     <main class="pagina pagina-resultado">
         <h1 class="title">
-            <img class="logo" src="DEV-logo.svg" alt="Devvrapped">
+            <img class="logo" src="/DEV-logo.svg" alt="Devvrapped">
             <span class="ano"><?= $year ?></span>
         </h1>
         <p class="subtitle"><?= esc($userName) ?> (@<?= esc($githubUser) ?>)</p>
 
         <?php if ($erro !== null): ?>
             <div class="alerta-ruim" role="alert"><?= esc($erro) ?></div>
-            <a class="button botao-secundario" href="index.php">Voltar e tentar de novo</a>
+            <a class="button botao-secundario" href="/index.php">Voltar e tentar de novo</a>
         <?php else: ?>
             <section class="bloco">
                 <p class="numero-grande"><?= (int) $payload['total_commits'] ?></p>
@@ -188,7 +188,7 @@ if ($payload !== null) {
     <script>
         window.DEVVRAPPED = <?= $json ?>;
     </script>
-    <script src="assets/js/card.js" defer></script>
+    <script src="/assets/js/card.js" defer></script>
     <?php endif; ?>
 </body>
 </html>
