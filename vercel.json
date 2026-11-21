@@ -10,10 +10,15 @@
       "destination": "/api/index.php"
     },
     {
+      "source": "/index.php",
+      "destination": "/api/index.php"
+    },
+    {
       "source": "/send.php",
       "destination": "/api/send.php"
     }
   ]
 }
+
 
 

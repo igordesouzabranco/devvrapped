@@ -124,7 +124,7 @@ if ($isPost) {
         </h1>
         <p class="subtitle">Sua retrospectiva anual de commits do GitHub</p>
 
-        <form class="formulario-github" method="POST" action="index.php" novalidate>
+        <form class="formulario-github" method="POST" action="/" novalidate>
             <div class="campo">
                 <label class="label" for="nome">Seu nome</label>
                 <input type="text" id="nome" name="nome" maxlength="100"
