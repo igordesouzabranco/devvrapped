@@ -1,14 +1,19 @@
 {
   "functions": {
-    "api/index.php": {
+    "api/*.php": {
       "runtime": "vercel-php@0.7.3"
     }
   },
   "rewrites": [
     {
-      "source": "/((?!assets/|.*\\.svg$).*)",
+      "source": "/",
       "destination": "/api/index.php"
+    },
+    {
+      "source": "/send.php",
+      "destination": "/api/send.php"
     }
   ]
 }
+
 
