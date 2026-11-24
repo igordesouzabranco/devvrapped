@@ -37,10 +37,13 @@ $userEmail = isset($values['email']) && is_string($values['email']) ? $values['e
 $year = (int) date('Y');
 $erro = null;
 $payload = null;
+/** @var list<string> $skippedRepositories */
+$skippedRepositories = [];
 
 try {
     $client = new GitHubClient(GITHUB_TOKEN);
     $data = $client->collect($githubUser, $year);
+    $skippedRepositories = $data['skipped'];
 
     $statistics = new Statistics(
         $data['commits'],
@@ -102,6 +105,14 @@ if ($payload !== null) {
                 <p class="numero-grande"><?= (int) $payload['total_commits'] ?></p>
                 <p class="rotulo">commits em <?= $year ?></p>
             </section>
+
+            <?php if ($skippedRepositories !== []): ?>
+            <div class="alerta-ruim" role="status">
+                <?= count($skippedRepositories) ?>
+                <?= count($skippedRepositories) === 1 ? 'repositório foi ignorado' : 'repositórios foram ignorados' ?>
+                (acesso bloqueado pelo GitHub): <?= esc(implode(', ', $skippedRepositories)) ?>.
+            </div>
+            <?php endif; ?>
 
             <?php if ($payload['languages'] !== []): ?>
             <section class="bloco">

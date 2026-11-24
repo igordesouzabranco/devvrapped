@@ -21,6 +21,14 @@ final class GitHubClient
     private string $token;
     private int $requestCount = 0;
 
+    /**
+     * Repositórios que o GitHub bloqueou (403/451 que não é rate limit).
+     * Em vez de derrubar o Wrapped inteiro, pulamos o repositório e avisamos.
+     *
+     * @var list<string>
+     */
+    private array $skippedRepositories = [];
+
     public function __construct(string $token)
     {
         // Quebras de linha no token permitiriam injetar headers extras na requisição.
@@ -28,34 +36,88 @@ final class GitHubClient
     }
 
     /**
-     * Busca tudo de uma vez: repositórios → linguagens → commits do ano.
+     * Busca tudo de uma vez: repositórios → commits do ano → linguagens.
+     *
+     * Só entram repositórios em que o usuário fez commits no ano pedido:
+     * primeiro descartamos os sem push no ano (sem gastar requisição) e depois
+     * confirmamos pelos commits. As linguagens vêm só desses repositórios.
      *
      * @return array{
      *     username: string,
      *     year: int,
-     *     repositories: list<array{name: string, owner: string, url: string, stars: int}>,
+     *     repositories: list<array{name: string, owner: string, url: string, stars: int, pushed_at: string}>,
      *     languages: array<string, int>,
-     *     commits: list<array{repository: string, email: string, date: string}>
+     *     commits: list<array{repository: string, email: string, date: string}>,
+     *     skipped: list<string>
      * }
      * @throws GitHubApiException
      */
     public function collect(string $username, int $year): array
     {
-        $repositories = $this->getRepositories($username);
+        $this->skippedRepositories = [];
+
+        // 1) Filtro barato (sem chamar a API): descarta repositórios sem push no ano.
+        $candidates = $this->filterActiveInYear($this->getRepositories($username), $year);
+
+        // 2) Commits primeiro: é aqui que descobrimos quais repositórios
+        //    realmente tiveram commits do usuário no ano.
+        $commits = $this->getCommits($candidates, $username, $year);
+
+        // 3) Só os repositórios com pelo menos um commit no ano entram nas
+        //    linguagens (e economizamos uma requisição /languages por repo parado).
+        $withCommits = array_flip(array_column($commits, 'repository'));
+        $repositories = array_values(array_filter(
+            $candidates,
+            static fn (array $repo): bool => isset($withCommits[$repo['name']]),
+        ));
 
         return [
             'username' => $username,
             'year' => $year,
             'repositories' => $repositories,
             'languages' => $this->sumLanguages($repositories),
-            'commits' => $this->getCommits($repositories, $username, $year),
+            'commits' => $commits,
+            'skipped' => array_values(array_unique($this->skippedRepositories)),
         ];
+    }
+
+    /**
+     * Mantém só os repositórios com push a partir de 1º de janeiro de $year.
+     *
+     * `pushed_at` é uma string ISO 8601 em UTC (ex.: 2026-03-01T12:00:00Z),
+     * então a comparação de strings já respeita a ordem cronológica.
+     *
+     * @param list<array{name: string, owner: string, url: string, stars: int, pushed_at: string}> $repositories
+     * @return list<array{name: string, owner: string, url: string, stars: int, pushed_at: string}>
+     */
+    private function filterActiveInYear(array $repositories, int $year): array
+    {
+        $since = sprintf('%04d-01-01T00:00:00Z', $year);
+        $active = [];
+
+        foreach ($repositories as $repo) {
+            if ($repo['pushed_at'] !== '' && $repo['pushed_at'] >= $since) {
+                $active[] = $repo;
+            }
+        }
+
+        return $active;
+    }
+
+    /**
+     * 403/451 sem ser rate limit = repositório bloqueado pelo GitHub
+     * (takedown/DMCA, termos de uso ou repositório desativado).
+     */
+    private function isBlockedRepository(GitHubApiException $exception): bool
+    {
+        return !$exception->rateLimited
+            && ($exception->statusCode === 403 || $exception->statusCode === 451);
     }
 
     /**
      * Lista os repositórios do usuário (paginação), ignorando forks.
      *
-     * @return list<array{name: string, owner: string, url: string, stars: int}>
+     * @return list<array{name: string, owner: string, url: string, stars: int, pushed_at: string}>
      * @throws GitHubApiException
      */
     public function getRepositories(string $username): array
@@ -83,6 +145,8 @@ final class GitHubClient
                         'owner' => (string) ($repo['owner']['login'] ?? $username),
                         'url' => (string) ($repo['html_url'] ?? ''),
                         'stars' => (int) ($repo['stargazers_count'] ?? 0),
+                        // Repositório vazio/recém-criado pode vir com pushed_at nulo.
+                        'pushed_at' => (string) ($repo['pushed_at'] ?? ''),
                     ];
                 }
 
@@ -103,9 +167,9 @@ final class GitHubClient
     }
 
     /**
-     * Soma os bytes de cada linguagem em todos os repositórios.
+     * Soma os bytes de cada linguagem nos repositórios recebidos.
      *
-     * @param list<array{name: string, owner: string, url: string, stars: int}> $repositories
+     * @param list<array{name: string, owner: string, url: string, stars: int, pushed_at: string}> $repositories
      * @return array<string, int> linguagem => total de bytes, do maior para o menor
      * @throws GitHubApiException
      */
@@ -114,7 +178,19 @@ final class GitHubClient
         $totals = [];
 
         foreach ($repositories as $repo) {
-            foreach ($this->getLanguages($repo['owner'], $repo['name']) as $language => $bytes) {
+            try {
+                $languages = $this->getLanguages($repo['owner'], $repo['name']);
+            } catch (GitHubApiException $exception) {
+                // Repositório bloqueado: pula só ele. Rate limit e demais erros continuam fatais.
+                if ($this->isBlockedRepository($exception)) {
+                    $this->skippedRepositories[] = $repo['name'];
+                    continue;
+                }
+
+                throw $exception;
+            }
+
+            foreach ($languages as $language => $bytes) {
                 $totals[$language] = ($totals[$language] ?? 0) + $bytes;
             }
         }
@@ -149,7 +225,7 @@ final class GitHubClient
      *
      * O e-mail vem de `commit.author.email` — é o e-mail gravado no commit.
      *
-     * @param list<array{name: string, owner: string, url: string, stars: int}> $repositories
+     * @param list<array{name: string, owner: string, url: string, stars: int, pushed_at: string}> $repositories
      * @return list<array{repository: string, email: string, date: string}>
      * @throws GitHubApiException
      */
@@ -180,6 +256,13 @@ final class GitHubClient
                     // 409 = "Git Repository is empty": repositório novo, sem commits.
                     // Não derruba o Wrapped inteiro: seguimos para o próximo repositório.
                     if ($exception->statusCode === 409) {
+                        break;
+                    }
+
+                    // 403/451 que não é rate limit = repositório bloqueado pelo GitHub.
+                    // Pulamos só ele e avisamos na tela, em vez de derrubar tudo.
+                    if ($this->isBlockedRepository($exception)) {
+                        $this->skippedRepositories[] = $repo['name'];
                         break;
                     }
 
